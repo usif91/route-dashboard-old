@@ -5,19 +5,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Route Dashboard (Report)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        body.report-mode {
-            border-top: 5px solid var(--accent);
-        }
-    </style>
 </head>
 
 <body class="report-mode">
-    <div style="font-size:10px; color:rgba(255,255,255,0.2); float:right;">v2.1</div>
+    <div class="version-inline">v3.0</div>
     <header id="report-header" class="empty-state">
         <div class="wrap">
-            <h1>Route Dashboard (Ticketing)</h1>
+            <h1>🎫 Route Dashboard (Ticketing)</h1>
 
             <div class="tabs">
                 <button id="tab-submit" class="tab-btn active">Submit Report</button>
@@ -133,9 +131,7 @@
                         <textarea id="reportAdditionalNotes" rows="3" placeholder="Any other details..."></textarea>
                     </div>
 
-                    <button id="btnSubmitReport"
-                        style="width: 100%; background: var(--accent); color: #000; font-weight: bold; margin-top: 10px;">Submit
-                        Ticket</button>
+                    <button id="btnSubmitReport" class="btn-submit-report">Submit Ticket</button>
                 </div>
 
             </div>
@@ -147,7 +143,7 @@
                     <h2 style="font-size: 16px; margin: 0;">Open Tickets</h2>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <select id="ticketCarFilter"
-                            style="width: auto; padding: 6px 10px; border-radius: 8px; background: rgba(18, 22, 36, 0.9); color: var(--text); border: 1px solid var(--border);">
+                            style="width: auto; padding: 6px 10px; border-radius: 8px; background: rgba(15, 19, 32, 0.9); color: var(--text); border: 1px solid var(--border); font-family: inherit;">
                             <option value="all">All</option>
                             <option value="24">24</option>
                             <option value="25">25</option>
@@ -157,7 +153,7 @@
                             <option value="65">65</option>
                         </select>
                         <select id="ticketSortSelect"
-                            style="width: auto; padding: 6px 10px; border-radius: 8px; background: rgba(18, 22, 36, 0.9); color: var(--text); border: 1px solid var(--border);">
+                            style="width: auto; padding: 6px 10px; border-radius: 8px; background: rgba(15, 19, 32, 0.9); color: var(--text); border: 1px solid var(--border); font-family: inherit;">
                             <option value="distance">Sort by Distance</option>
                             <option value="time">Sort by Newest</option>
                         </select>

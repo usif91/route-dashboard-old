@@ -192,22 +192,44 @@ function lookupNickname(deviceId) {
     return deviceId;
 }
 
+var REPORT_HEADERS = ["Timestamp", "Status", "Route", "Intersection", "Lat", "Lon", "ProblemType", "Details", "LocationNotes", "AdditionalNotes", "DeviceID", "ReportedBy", "ResolvedBy", "ResolvedTime"];
+
+// Ensures the Reports sheet has all required headers, adding missing columns if needed
+function ensureReportHeaders(sheet) {
+    var lastRow = sheet.getLastRow();
+    if (lastRow === 0) {
+        // Empty sheet — add full header row
+        sheet.appendRow(REPORT_HEADERS);
+        return;
+    }
+    var firstCell = sheet.getRange(1, 1).getValue();
+    if (firstCell !== "Timestamp") {
+        // Data but no header — insert header row
+        sheet.insertRowBefore(1);
+        sheet.getRange(1, 1, 1, REPORT_HEADERS.length).setValues([REPORT_HEADERS]);
+        return;
+    }
+    // Header exists — check if new columns are missing and append them
+    var existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var missingHeaders = [];
+    for (var h = 0; h < REPORT_HEADERS.length; h++) {
+        if (existingHeaders.indexOf(REPORT_HEADERS[h]) === -1) {
+            missingHeaders.push(REPORT_HEADERS[h]);
+        }
+    }
+    if (missingHeaders.length > 0) {
+        var startCol = existingHeaders.length + 1;
+        sheet.getRange(1, startCol, 1, missingHeaders.length).setValues([missingHeaders]);
+    }
+}
+
 function submitReport(data) {
-    // Requires a sheet named "Reports"
     // Columns: [Timestamp, Status, Route, Intersection, Lat, Lon, ProblemType, Details, LocationNotes, AdditionalNotes, DeviceID, ReportedBy, ResolvedBy, ResolvedTime]
-    var HEADERS = ["Timestamp", "Status", "Route", "Intersection", "Lat", "Lon", "ProblemType", "Details", "LocationNotes", "AdditionalNotes", "DeviceID", "ReportedBy", "ResolvedBy", "ResolvedTime"];
     let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Reports");
     if (!sheet) {
         sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Reports");
-        sheet.appendRow(HEADERS);
-    } else {
-        // Self-healing: If sheet exists but has no headers, insert them
-        const firstCell = sheet.getRange(1, 1).getValue();
-        if (firstCell !== "Timestamp") {
-            sheet.insertRowBefore(1);
-            sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
-        }
     }
+    ensureReportHeaders(sheet);
 
     const timestamp = new Date();
     sheet.appendRow([
@@ -236,15 +258,8 @@ function getReports() {
         return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Self-healing check for getReports as well
-    var HEADERS = ["Timestamp", "Status", "Route", "Intersection", "Lat", "Lon", "ProblemType", "Details", "LocationNotes", "AdditionalNotes", "DeviceID", "ReportedBy", "ResolvedBy", "ResolvedTime"];
-    if (sheet.getLastRow() > 0) {
-        const firstCell = sheet.getRange(1, 1).getValue();
-        if (firstCell !== "Timestamp") {
-            sheet.insertRowBefore(1);
-            sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
-        }
-    }
+    // Ensure headers are up to date
+    ensureReportHeaders(sheet);
 
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) {
@@ -291,13 +306,8 @@ function resolveReport(data) {
         return ContentService.createTextOutput(JSON.stringify({ success: false, message: "Reports sheet not found" })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Check self-healing to prevent off-by-one errors
-    var HEADERS = ["Timestamp", "Status", "Route", "Intersection", "Lat", "Lon", "ProblemType", "Details", "LocationNotes", "AdditionalNotes", "DeviceID", "ReportedBy", "ResolvedBy", "ResolvedTime"];
-    const firstCell = sheet.getRange(1, 1).getValue();
-    if (firstCell !== "Timestamp") {
-        sheet.insertRowBefore(1);
-        sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
-    }
+    // Ensure headers are up to date
+    ensureReportHeaders(sheet);
 
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const statusColIndex = headers.indexOf("Status") + 1; // 1-indexed
@@ -312,7 +322,9 @@ function resolveReport(data) {
             sheet.getRange(rowIndex, resolvedByColIndex).setValue(lookupNickname(data.resolvedBy || "Unknown"));
         }
         if (resolvedTimeColIndex > 0) {
-            sheet.getRange(rowIndex, resolvedTimeColIndex).setValue(new Date());
+            var now = new Date();
+            var resolvedTimeStr = (now.getMonth()+1) + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.toLocaleTimeString();
+            sheet.getRange(rowIndex, resolvedTimeColIndex).setValue(resolvedTimeStr);
         }
 
         return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Report resolved" })).setMimeType(ContentService.MimeType.JSON);
