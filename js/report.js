@@ -441,7 +441,7 @@ window.resolveTicket = async function (rowIndex, btnEl) {
         const resp = await fetch(GOOGLE_SCRIPT_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ action: "resolveReport", rowIndex: rowIndex })
+            body: JSON.stringify({ action: "resolveReport", rowIndex: rowIndex, resolvedBy: getClientId() })
         });
         const result = await resp.json();
         if (result.success) {

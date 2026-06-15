@@ -171,19 +171,41 @@ function logSearch(data) {
 
 // --- NEW REPORTING LOGIC ---
 
+// Look up a nickname from the nicknames sheet by device ID
+// Returns "Nickname (deviceId)" if found, otherwise just deviceId
+function lookupNickname(deviceId) {
+    if (!deviceId || deviceId === "Unknown") return "Unknown";
+    try {
+        var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("nicknames");
+        if (!sheet) return deviceId;
+        var data = sheet.getDataRange().getValues();
+        for (var i = 1; i < data.length; i++) {
+            if (String(data[i][0]) === String(deviceId)) {
+                var nickname = data[i][1];
+                if (nickname) return nickname + " (" + deviceId + ")";
+                break;
+            }
+        }
+    } catch (e) {
+        // If lookup fails, just return the raw ID
+    }
+    return deviceId;
+}
+
 function submitReport(data) {
     // Requires a sheet named "Reports"
-    // Columns: [Timestamp, Status, Route, Intersection, Lat, Lon, ProblemType, Details, LocationNotes, AdditionalNotes, DeviceID]
+    // Columns: [Timestamp, Status, Route, Intersection, Lat, Lon, ProblemType, Details, LocationNotes, AdditionalNotes, DeviceID, ReportedBy, ResolvedBy, ResolvedTime]
+    var HEADERS = ["Timestamp", "Status", "Route", "Intersection", "Lat", "Lon", "ProblemType", "Details", "LocationNotes", "AdditionalNotes", "DeviceID", "ReportedBy", "ResolvedBy", "ResolvedTime"];
     let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Reports");
     if (!sheet) {
         sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Reports");
-        sheet.appendRow(["Timestamp", "Status", "Route", "Intersection", "Lat", "Lon", "ProblemType", "Details", "LocationNotes", "AdditionalNotes", "DeviceID"]);
+        sheet.appendRow(HEADERS);
     } else {
         // Self-healing: If sheet exists but has no headers, insert them
         const firstCell = sheet.getRange(1, 1).getValue();
         if (firstCell !== "Timestamp") {
             sheet.insertRowBefore(1);
-            sheet.getRange(1, 1, 1, 11).setValues([["Timestamp", "Status", "Route", "Intersection", "Lat", "Lon", "ProblemType", "Details", "LocationNotes", "AdditionalNotes", "DeviceID"]]);
+            sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
         }
     }
 
@@ -199,7 +221,10 @@ function submitReport(data) {
         data.details || "",
         data.locationNotes || "",
         data.additionalNotes || "",
-        data.deviceId || "Unknown"
+        data.deviceId || "Unknown",
+        lookupNickname(data.reporter || data.deviceId || "Unknown"),
+        "",  // ResolvedBy (empty on submit)
+        ""   // ResolvedTime (empty on submit)
     ]);
 
     return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Report submitted" })).setMimeType(ContentService.MimeType.JSON);
@@ -212,11 +237,12 @@ function getReports() {
     }
 
     // Self-healing check for getReports as well
+    var HEADERS = ["Timestamp", "Status", "Route", "Intersection", "Lat", "Lon", "ProblemType", "Details", "LocationNotes", "AdditionalNotes", "DeviceID", "ReportedBy", "ResolvedBy", "ResolvedTime"];
     if (sheet.getLastRow() > 0) {
         const firstCell = sheet.getRange(1, 1).getValue();
         if (firstCell !== "Timestamp") {
             sheet.insertRowBefore(1);
-            sheet.getRange(1, 1, 1, 11).setValues([["Timestamp", "Status", "Route", "Intersection", "Lat", "Lon", "ProblemType", "Details", "LocationNotes", "AdditionalNotes", "DeviceID"]]);
+            sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
         }
     }
 
@@ -266,17 +292,29 @@ function resolveReport(data) {
     }
 
     // Check self-healing to prevent off-by-one errors
+    var HEADERS = ["Timestamp", "Status", "Route", "Intersection", "Lat", "Lon", "ProblemType", "Details", "LocationNotes", "AdditionalNotes", "DeviceID", "ReportedBy", "ResolvedBy", "ResolvedTime"];
     const firstCell = sheet.getRange(1, 1).getValue();
     if (firstCell !== "Timestamp") {
         sheet.insertRowBefore(1);
-        sheet.getRange(1, 1, 1, 11).setValues([["Timestamp", "Status", "Route", "Intersection", "Lat", "Lon", "ProblemType", "Details", "LocationNotes", "AdditionalNotes", "DeviceID"]]);
+        sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
     }
 
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const statusColIndex = headers.indexOf("Status") + 1; // 1-indexed
+    const resolvedByColIndex = headers.indexOf("ResolvedBy") + 1;
+    const resolvedTimeColIndex = headers.indexOf("ResolvedTime") + 1;
 
     if (statusColIndex > 0) {
         sheet.getRange(rowIndex, statusColIndex).setValue("Resolved");
+
+        // Write who resolved it and when
+        if (resolvedByColIndex > 0) {
+            sheet.getRange(rowIndex, resolvedByColIndex).setValue(lookupNickname(data.resolvedBy || "Unknown"));
+        }
+        if (resolvedTimeColIndex > 0) {
+            sheet.getRange(rowIndex, resolvedTimeColIndex).setValue(new Date());
+        }
+
         return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Report resolved" })).setMimeType(ContentService.MimeType.JSON);
     }
 
