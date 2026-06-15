@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Intersection Map PRO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0
+    }
+
+    #map {
+      position: absolute;
+      top: var(--header-h, 160px);
+      left: 0;
+      right: 0;
+      bottom: 0
+    }
+
+    .legend {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 0 6px rgba(0, 0, 0, .2);
+      font-size: 12px;
+      z-index: 1000;
+      min-width: 170px
+    }
+
+    .legend-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px
+    }
+
+    .legend-item.off {
+      opacity: .3
+    }
+
+    .legend-left {
+      display: flex;
+      align-items: center;
+      cursor: pointer
+    }
+
+    .legend-color {
+      width: 14px;
+      height: 14px;
+      margin-right: 6px;
+      border-radius: 50%
+    }
+
+    .legend-buttons {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 6px
+    }
+
+    .legend button {
+      border: 1px solid #ccc;
+      padding: 2px 6px;
+      font-size: 11px;
+      border-radius: 4px;
+      background: #f7f7f7
+    }
+  </style>
+
+</head>
+
+<body>
+
+  <div id="toolbar" class="fixed top-0 left-0 right-0 bg-white shadow z-50 p-2">
+
+    <div class="flex gap-3 items-center flex-wrap" style="font-size:13px">
+
+      <select id="colorMode" class="border p-1 rounded" onchange="resetFilters();updateLegend();redrawAll();">
+        <option value="yard">YARD</option>
+        <option value="6car">6 CAR</option>
+        <option value="5car">5 CAR</option>
+        <option value="4car">4 CAR</option>
+        <option value="3car">3 CAR</option>
+        <option value="2car">2 CAR</option>
+      </select>
+
+      <label class="flex items-center gap-1">
+        <input type="checkbox" id="togglePolygons" checked onchange="redrawAll()">
+        Polygons
+      </label>
+
+      <!-- These appear after data is loaded -->
+      <span id="dataSummaryText" style="display:none" class="text-green-700 font-medium">✅ 0 pts</span>
+      <button id="btnChangeData" onclick="showEditor()" style="display:none"
+        class="bg-gray-600 text-white px-2 py-1 rounded text-xs">Change Data</button>
+
+    </div>
+
+    <!-- Editor (shown initially, hidden after load) -->
+    <div id="editor" class="mt-2">
+      <textarea id="dataInput" class="w-full h-24 border p-2 text-xs" placeholder="Paste JSON objects here"></textarea>
+      <button onclick="loadData()" class="bg-blue-600 text-white px-3 py-1 rounded mt-1 text-sm">Load Data</button>
+    </div>
+
+  </div>
+
+  <div id="map"></div>
+  <div id="legend" class="legend"></div>
+
+  <script>
+
+    /* COLORS */
+
+    const yardColors = { W: "#1f77b4", C: "#ff7f0e", V: "#2ca02c" };
+
+    const carColors = {
+      "24": "#00bcd4",
+      "25": "#3f51b5",
+      "44": "#f1c40f",
+      "45": "#e67e22",
+      "64": "#e74c3c",
+      "65": "#8e44ad"
+    };
+
+    function getCarColor(v) { return carColors[String(v)] }
+
+    /* MAP */
+
+    const map = L.map("map").setView([34.05, -118.25], 10)
+
+    L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      { maxZoom: 19 }
+    ).addTo(map)
+
+    map.createPane("polygonsPane")
+    map.getPane("polygonsPane").style.zIndex = 400
+
+    map.createPane("markersPane")
+    map.getPane("markersPane").style.zIndex = 500
+
+    /* STATE */
+
+    let allData = []
+    let markers = []
+    let polygons = []
+    let activeCategories = {}
+
+    /* MARKER SIZE */
+
+    function getRadius() {
+      const z = map.getZoom()
+      if (z <= 9) return 2
+      if (z <= 11) return 4
+      if (z <= 13) return 6
+      if (z <= 15) return 8
+      return 10
+    }
+
+    /* CATEGORY */
+
+    function getCategoryKey(pt) {
+      const mode = document.getElementById("colorMode").value
+      if (mode === "yard") return pt.YARD
+      return pt[mode]
+    }
+
+    function getCategoryColor(k) {
+      const mode = document.getElementById("colorMode").value
+      return mode === "yard" ? yardColors[k] : getCarColor(k)
+    }
+
+    /* DATA LOAD */
+
+    function loadData() {
+
+      try {
+
+        let raw = document.getElementById("dataInput").value.trim()
+
+        raw = raw.replace(/,\s*$/, "")
+
+        if (!raw.startsWith("[")) raw = "[" + raw
+        if (!raw.endsWith("]")) raw = raw + "]"
+
+        allData = JSON.parse(raw)
+
+        // Collapse editor, show inline summary
+        document.getElementById("editor").style.display = "none"
+        document.getElementById("dataSummaryText").style.display = "inline"
+        document.getElementById("dataSummaryText").textContent = "✅ " + allData.length + " pts loaded"
+        document.getElementById("btnChangeData").style.display = "inline"
+        syncHeaderHeight()
+
+        resetFilters()
+        updateLegend()
+        redrawAll()
+
+      } catch (e) {
+
+        alert("Invalid JSON")
+
+      }
+
+    }
+
+    /* SHOW EDITOR */
+
+    function showEditor() {
+      document.getElementById("editor").style.display = "block"
+      document.getElementById("dataSummaryText").style.display = "none"
+      document.getElementById("btnChangeData").style.display = "none"
+      syncHeaderHeight()
+    }
+
+    /* SYNC MAP TOP TO HEADER HEIGHT */
+    function syncHeaderHeight() {
+      requestAnimationFrame(() => {
+        const h = document.getElementById("toolbar").offsetHeight
+        document.documentElement.style.setProperty("--header-h", h + "px")
+        map.invalidateSize()
+      })
+    }
+    window.addEventListener("resize", syncHeaderHeight)
+    syncHeaderHeight()
+
+    /* RESET */
+
+    function resetFilters() { activeCategories = {} }
+
+    /* MARKERS */
+
+    function plotMarkers() {
+
+      markers.forEach(m => map.removeLayer(m))
+      markers = []
+
+      const r = getRadius()
+
+      allData.forEach(pt => {
+
+        if (!pt.coordinates) return
+
+        const key = getCategoryKey(pt)
+        if (!key) return
+        if (activeCategories[key] === false) return
+
+        const [lat, lng] = pt.coordinates.split(",").map(Number)
+
+        const marker = L.circleMarker([lat, lng], {
+
+          pane: "markersPane",
+          radius: r,
+          color: "#fff",
+          weight: 1.5,
+          fillColor: getCategoryColor(key) || "#999",
+          fillOpacity: .95
+
+        })
+
+          .bindPopup(
+            `<b>${pt.STREETSORT || ""}</b><br>
+Route:${pt.ROUTE || ""}<br>
+Yard:${pt.YARD || ""}<br>
+6:${pt["6car"] || ""}
+5:${pt["5car"] || ""}
+4:${pt["4car"] || ""}
+3:${pt["3car"] || ""}
+2:${pt["2car"] || ""}`
+          )
+
+          .addTo(map)
+
+        markers.push(marker)
+
+      })
+
+    }
+
+    /* POLYGONS */
+
+    function drawCategoryPolygons() {
+
+      polygons.forEach(p => map.removeLayer(p))
+      polygons = []
+
+      if (!document.getElementById("togglePolygons").checked) return
+
+      const groups = {}
+
+      allData.forEach(pt => {
+
+        if (!pt.coordinates) return
+
+        const key = getCategoryKey(pt)
+        if (!key) return
+        if (activeCategories[key] === false) return
+
+        const [lat, lng] = pt.coordinates.split(",").map(Number)
+
+        if (!groups[key]) groups[key] = []
+        groups[key].push([lng, lat])
+
+      })
+
+      for (const key in groups) {
+
+        if (groups[key].length < 3) continue
+
+        const pts = turf.points(groups[key])
+
+        /* remove outliers */
+
+        const center = turf.center(pts)
+        const filtered = pts.features.filter(f => {
+
+          const d = turf.distance(center, f)
+          return d < 20
+
+        })
+
+        if (filtered.length < 3) continue
+
+        const fc = turf.featureCollection(filtered)
+
+        /* cluster hull */
+
+        let hull = turf.concave(fc, { maxEdge: 2, units: "kilometers" })
+        if (!hull) hull = turf.convex(fc)
+        if (!hull) continue
+
+        hull = turf.simplify(hull, { tolerance: .0003, highQuality: true })
+
+        const poly = L.geoJSON(hull, {
+          pane: "polygonsPane",
+          style: {
+            color: getCategoryColor(key) || "#999",
+            weight: 2,
+            fillOpacity: .18
+          }
+        }).addTo(map)
+
+        polygons.push(poly)
+
+      }
+
+    }
+
+    function redrawAll() {
+      drawCategoryPolygons()
+      plotMarkers()
+    }
+
+    map.on("zoomend moveend", redrawAll)
+
+    /* LEGEND */
+
+    function updateLegend() {
+
+      const legend = document.getElementById("legend")
+      legend.innerHTML = ""
+
+      const mode = document.getElementById("colorMode").value
+
+      const keys = [...new Set(
+        allData.map(pt => getCategoryKey(pt)).filter(Boolean)
+      )]
+
+      legend.innerHTML += `<b>${mode.toUpperCase()}</b>`
+
+      const btns = document.createElement("div")
+      btns.className = "legend-buttons"
+      btns.innerHTML = `
+<button onclick="showAll()">Show All</button>
+<button onclick="hideAll()">Hide All</button>
+`
+      legend.appendChild(btns)
+
+      keys.forEach(k => {
+
+        if (activeCategories[k] === undefined) activeCategories[k] = true
+
+        const div = document.createElement("div")
+        div.className = "legend-item" + (activeCategories[k] ? "" : " off")
+
+        const left = document.createElement("div")
+        left.className = "legend-left"
+
+        left.innerHTML = `<div class="legend-color" style="background:${getCategoryColor(k)}"></div>${k}`
+
+        left.onclick = () => {
+          activeCategories[k] = !activeCategories[k]
+          updateLegend()
+          redrawAll()
+        }
+
+        const only = document.createElement("button")
+        only.textContent = "Only"
+
+        only.onclick = () => {
+          keys.forEach(x => activeCategories[x] = false)
+          activeCategories[k] = true
+          updateLegend()
+          redrawAll()
+        }
+
+        div.appendChild(left)
+        div.appendChild(only)
+
+        legend.appendChild(div)
+
+      })
+
+    }
+
+    function showAll() {
+      Object.keys(activeCategories).forEach(k => activeCategories[k] = true)
+      updateLegend()
+      redrawAll()
+    }
+
+    function hideAll() {
+      Object.keys(activeCategories).forEach(k => activeCategories[k] = false)
+      updateLegend()
+      redrawAll()
+    }
+
+    updateLegend()
+
+  </script>
+
+</body>
+
+</html>

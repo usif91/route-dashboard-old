@@ -4,23 +4,24 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Route Da5shboard</title>
+    <title>Route Dashboard (Dispatch)</title>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        body.dispatch-mode {
+            border-top: 5px solid #ffd700;
+        }
+    </style>
 </head>
 
-<body>
+<body class="dispatch-mode">
     <div style="font-size:10px; color:rgba(255,255,255,0.2); float:right;">v2.1</div>
     <header>
         <div class="wrap">
             <h1>Route Dashboard</h1>
-            <div class="controls" style="display: flex; gap: 8px;">
-                <input id="q" style="flex: 1;" type="search" placeholder='Search . Example: "3rd jef"'
-                    autocomplete="off" />
-                <button id="btnNear">Near me (top 5)</button>
+            <div class="controls">
+                <input id="q" type="search" placeholder='Search . Example: "3rd jef"' autocomplete="off" />
+                <button id="btnNear">Search near me (top 5)</button>
             </div>
-            <a href="report.html"
-                style="display: block; margin-top: 12px; padding: 10px; background: rgba(122, 162, 255, 0.15); color: var(--accent); text-align: center; border-radius: 8px; text-decoration: none; border: 1px solid rgba(122, 162, 255, 0.3); font-weight: bold; font-size: 14px;">Report
-                non-emergency issues</a>
             <div id="status" class="meta" style="margin-top:8px;"></div>
         </div>
     </header>

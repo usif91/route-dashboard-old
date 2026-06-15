@@ -4,7 +4,7 @@ function getClientId() {
     let id = localStorage.getItem('dashboard_client_id');
     if (!id) {
         // Generate a unique device ID with timestamp for uniqueness
-        id = 'device-' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36).substr(-4);
+        id = 'User-' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36).substr(-4);
         localStorage.setItem('dashboard_client_id', id);
     }
     return id;
@@ -17,30 +17,32 @@ export async function logSearch(query, details = {}) {
     }
 
     const topResult = details.topResult;
-    const params = new URLSearchParams({
+    const payload = {
+        action: 'log',
+        source: 'Client',
         user: getClientId(),
         query: query,
         topResultSummary: topResult ? `${topResult.Route} (${topResult.YARD})` : "No Match",
         intersection: details.intersection || (topResult ? topResult.STREETSORT : ""),
         location: details.location ? `${details.location.lat},${details.location.lon}` : "",
         sixCar: topResult ? (topResult["6 car"] || "") : ""
-    });
+    };
 
-    const fullUrl = `${GOOGLE_SCRIPT_URL}?${params.toString()}`;
-
-    // Strategy 1: Fetch with keepalive (modern standard for logging)
-    // This tells the browser "don't kill this request even if the user closes the tab/switches apps"
+    // Use POST with keepalive to robustly send data to GAS
+    // We use text/plain to avoid preflight CORS issues, GAS parses it fine
     try {
-        fetch(fullUrl, { mode: 'no-cors', keepalive: true }).catch(() => { });
+        fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            cache: 'no-cache',
+            keepalive: true,
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8',
+            },
+            body: JSON.stringify(payload)
+        }).catch(err => console.error("Log send missed:", err));
     } catch (e) {
-        // Strategy 2: Image Beacon (Fallback)
-        // We append it to the body to ensure mobile browsers don't garbage collect it too early
-        const img = new Image();
-        img.src = fullUrl;
-        img.style.display = 'none';
-        document.body.appendChild(img);
-        // Clean up after a while
-        setTimeout(() => img.remove(), 5000);
+        console.error("Logging failed", e);
     }
 
     console.log("Logged:", query);

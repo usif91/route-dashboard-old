@@ -30,6 +30,23 @@ header {
     background: linear-gradient(to bottom, rgba(11, 13, 18, 0.95), rgba(11, 13, 18, 0.72), rgba(11, 13, 18, 0));
     backdrop-filter: blur(10px);
     z-index: 10;
+    transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+header.empty-state {
+    position: fixed;
+    top: 40%;
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
+    background: transparent;
+    backdrop-filter: none;
+}
+
+header.empty-state h1 {
+    text-align: center;
+    font-size: 24px;
+    margin-bottom: 20px;
 }
 
 .wrap {
@@ -318,15 +335,182 @@ tr.zebra-even.detail-row>td {
 
 @media (max-width: 760px) {
     .controls {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
     }
 
-    button {
-        width: 100%;
+    input[type="search"] {
+        flex: 1 1 100%;
+        font-size: 16px;
+        /* Prevents iOS zoom */
+        padding: 14px 12px;
+    }
+
+    #btnNear {
+        flex: 1 1 100%;
+        padding: 14px 12px;
+        font-size: 16px;
     }
 }
 
 /* Reserve space for status so it doesn't push content */
 #status {
     min-height: 34px;
+    text-align: center;
+}
+
+/* --- REPORT PAGE STYLES --- */
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: rgba(18, 22, 36, 0.5);
+    padding: 6px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.tab-btn.active {
+    background: rgba(122, 162, 255, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(122, 162, 255, 0.3);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(11, 13, 18, 0.8);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: var(--accent);
+}
+
+.ticket-card {
+    background: rgba(18, 22, 36, 0.8);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+}
+
+.ticket-card h3 {
+    margin: 0 0 8px 0;
+    font-size: 15px;
+    color: var(--accent);
+}
+
+.ticket-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ticket-details {
+    font-size: 14px;
+    line-height: 1.5;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+}
+
+.btn-resolve {
+    background: rgba(45, 212, 191, 0.15);
+    color: var(--ok);
+    border: 1px solid rgba(45, 212, 191, 0.3);
+    width: 100%;
+}
+
+.btn-resolve:hover {
+    background: rgba(45, 212, 191, 0.25);
+    border-color: var(--ok);
+}
+
+/* Route copy click feedback */
+.route-copy:hover {
+    color: #fff;
+}
+
+.route-copy.copied {
+    color: var(--ok) !important;
+    border-color: var(--ok) !important;
+}
+
+.route-copy.copied::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: -26px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ok);
+    color: #000;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: fadeInUp 0.2s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* Hide empty ticket details */
+.ticket-details:empty {
+    display: none;
 }

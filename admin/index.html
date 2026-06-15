@@ -80,8 +80,117 @@
                 font-size: 24px;
             }
 
-            table {
+            #adminContent table {
                 display: none;
+            }
+
+            /* Intersections table: card layout on mobile */
+            #intersectionsTable {
+                display: block !important;
+            }
+
+            #intersectionsTable colgroup,
+            #intersectionsTable thead {
+                display: none;
+            }
+
+            #intersectionsTable tbody {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            #intersectionsTable tbody tr {
+                display: flex;
+                flex-wrap: wrap;
+                background: rgba(18, 22, 36, 0.78);
+                border-radius: 12px;
+                padding: 15px;
+                border-left: 3px solid var(--accent);
+                gap: 8px;
+            }
+
+            #intersectionsTable tbody tr td {
+                border: none;
+                padding: 4px 0;
+            }
+
+            #intersectionsTable tbody tr td:nth-child(1) {
+                font-weight: bold;
+                color: var(--accent);
+                width: 60px;
+            }
+
+            #intersectionsTable tbody tr td:nth-child(1)::before {
+                content: 'Route: ';
+                color: var(--muted);
+                font-weight: normal;
+                font-size: 11px;
+            }
+
+            #intersectionsTable tbody tr td:nth-child(2) {
+                width: calc(100% - 80px);
+                font-weight: 500;
+            }
+
+            #intersectionsTable tbody tr td:nth-child(3) {
+                width: 100%;
+                font-size: 12px;
+                color: var(--muted);
+            }
+
+            #intersectionsTable tbody tr td:nth-child(4),
+            #intersectionsTable tbody tr td:nth-child(5),
+            #intersectionsTable tbody tr td:nth-child(6),
+            #intersectionsTable tbody tr td:nth-child(7),
+            #intersectionsTable tbody tr td:nth-child(8) {
+                flex: 1;
+                text-align: center;
+                font-size: 13px;
+            }
+
+            #intersectionsTable tbody tr td:nth-child(4)::before {
+                content: '6car: ';
+                color: var(--muted);
+                font-size: 10px;
+            }
+
+            #intersectionsTable tbody tr td:nth-child(5)::before {
+                content: '5car: ';
+                color: var(--muted);
+                font-size: 10px;
+            }
+
+            #intersectionsTable tbody tr td:nth-child(6)::before {
+                content: '4car: ';
+                color: var(--muted);
+                font-size: 10px;
+            }
+
+            #intersectionsTable tbody tr td:nth-child(7)::before {
+                content: '3car: ';
+                color: var(--muted);
+                font-size: 10px;
+            }
+
+            #intersectionsTable tbody tr td:nth-child(8)::before {
+                content: '2car: ';
+                color: var(--muted);
+                font-size: 10px;
+            }
+
+            #intersectionsTable tbody tr td:nth-child(9) {
+                width: 100%;
+                text-align: right;
+            }
+
+            /* GPS button sizing on mobile */
+            .gps-btn {
+                width: 32px !important;
+                min-width: 32px !important;
+                height: 32px !important;
+                padding: 2px !important;
+                font-size: 12px !important;
             }
 
             #logBodyMobile {
@@ -194,7 +303,14 @@
                 URL.
             </div>
 
-            <button class="refresh-btn" onclick="loadLogs()">Refresh Logs</button>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="refresh-btn" onclick="loadLogs()">Refresh Logs</button>
+                <button class="refresh-btn" onclick="showIntersections()"
+                    style="background:rgba(124, 159, 255, 0.2); border:1px solid var(--accent);">Manage
+                    Intersections</button>
+                <button class="refresh-btn" onclick="publishUpdates()"
+                    style="background:var(--ok); border:none; color:black;">Publish Updates</button>
+            </div>
             <button class="refresh-btn" onclick="loadMore()" id="loadMoreBtn"
                 style="display:none; margin-top:10px; background:rgba(124, 159, 255, 0.2); border:1px solid var(--accent);">Load
                 More (20)</button>
@@ -232,12 +348,61 @@
         </div>
     </div>
 
+    <!-- Intersections View -->
+    <div id="intersectionsContent" style="display:none;" class="admin-wrap">
+        <header style="background:transparent; padding:0; position:relative; box-shadow:none; backdrop-filter:none;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                <h1>Intersections Manager</h1>
+                <button class="refresh-btn" onclick="showLogs()">Back to Logs</button>
+            </div>
+            <div class="meta" style="margin-top:0;">Edit intersection details and plans</div>
+        </header>
+
+        <div id="intersectionStatus" class="meta" style="margin-top:10px;"></div>
+
+        <div style="margin-top:20px; margin-bottom: 20px;">
+            <input type="text" id="intersectionSearch" placeholder="Search intersections..."
+                style="width:100%; padding:12px; border-radius:8px; border:1px solid rgba(124, 159, 255, 0.3); background:rgba(18, 22, 36, 0.78); color:white;">
+        </div>
+
+        <div class="card table-wrapper" style="box-shadow:none; background:transparent; border:none;">
+            <table id="intersectionsTable">
+                <colgroup>
+                    <col style="width:8%">
+                    <col style="width:22%">
+                    <col style="width:16%">
+                    <col style="width:8%">
+                    <col style="width:8%">
+                    <col style="width:8%">
+                    <col style="width:8%">
+                    <col style="width:8%">
+                    <col style="width:14%">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Route</th>
+                        <th>Intersection</th>
+                        <th>Coordinates</th>
+                        <th>6 Car</th>
+                        <th>5 Car</th>
+                        <th>4 Car</th>
+                        <th>3 Car</th>
+                        <th>2 Car</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="intersectionsBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
         // Password protection using SHA-256 hash
         // Current password: "admin123"
         // To change: Replace the hash below with a new SHA-256 hash of your desired password
         // Generate hash at: https://emn178.github.io/online-tools/sha256.html
-        const PASSWORD_HASH = '01b5d60e5d8d4fd9e7859ededbfff526dd74407cb55218697675c8bd64a22d59'; // admin123
+        const PASSWORD_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9'; // admin123
 
         async function hashPassword(password) {
             const encoder = new TextEncoder();
@@ -307,6 +472,270 @@
         setInterval(updateCarsInUse, 60000);
     </script>
 
+    <script type="module">
+        import { GOOGLE_SCRIPT_URL } from '../js/config.js';
+        import { state, loadWorkbook, computeMatches, adminForceUpdate } from '../js/data.js';
+
+        const $ = (id) => document.getElementById(id);
+
+        function safeDecode(s) {
+            if (!s) return "";
+            try { return decodeURIComponent(s); } catch (e) { return s; }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        window.showLogs = function () {
+            document.querySelector('#adminContent > .admin-wrap').style.display = 'block';
+            document.getElementById('intersectionsContent').style.display = 'none';
+        }
+
+        window.showIntersections = async function () {
+            document.querySelector('#adminContent > .admin-wrap').style.display = 'none';
+            document.getElementById('intersectionsContent').style.display = 'block';
+
+            if (state.DATA.length === 0) {
+                await loadIntersections();
+            }
+        }
+
+        window.publishUpdates = async function () {
+            await adminForceUpdate((kind, msg) => {
+                let color = "var(--muted)";
+                if (kind === "error") color = "var(--danger)";
+                if (kind === "ok") color = "var(--ok)";
+                $("status").innerHTML = `<span style="color:${color}">${msg}</span>`;
+            });
+            setTimeout(() => $("status").innerHTML = "", 5000);
+        }
+
+        async function loadIntersections() {
+            const status = $("intersectionStatus");
+            await loadWorkbook(true, (kind, msg) => {
+                let color = "var(--muted)";
+                if (kind === "error") color = "var(--danger)";
+                if (kind === "ok") color = "var(--success)";
+                status.innerHTML = `<span style="color:${color}">${msg}</span>`;
+            }, () => {
+                renderIntersections();
+            });
+        }
+
+        function renderIntersections() {
+            const tbody = $("intersectionsBody");
+            tbody.innerHTML = "";
+
+            let toShow = [];
+            const query = $("intersectionSearch").value.trim();
+
+            if (query.length === 0) {
+                toShow = state.DATA.slice(0, 100);
+            } else {
+                state.query = query;
+                computeMatches();
+                toShow = state.matches;
+                if (toShow.length > 100) toShow = toShow.slice(0, 100);
+            }
+
+            toShow.forEach(item => {
+                const tr = document.createElement('tr');
+                const rawStreet = item._RAW_STREET || item.STREETSORT || ""; // Use preserved raw name if available
+                const displayStreet = item.STREETSORT || safeDecode(rawStreet); // Already decoded in data.js, but safe fallback
+                const displayCoords = item.coordinates || "";
+
+                tr.setAttribute('data-route-id', item.Route);
+                tr.setAttribute('data-raw-street', rawStreet);
+
+                const mapLink = displayCoords ? `<a href="https://www.google.com/maps?q=${displayCoords}" target="_blank" style="text-decoration:none; margin-left:5px;">📍</a>` : "";
+
+                tr.innerHTML = `
+                    <td>${item.Route || ''}</td>
+                    <td><div class="editable" data-field="name">${escapeHtml(displayStreet)}</div></td>
+                    <td><div class="editable" data-field="coordinates">${escapeHtml(displayCoords)}${mapLink}</div></td>
+                    <td><div class="editable" data-field="6 car">${escapeHtml(item["6 car"])}</div></td>
+                    <td><div class="editable" data-field="5 car">${escapeHtml(item["5 car"])}</div></td>
+                    <td><div class="editable" data-field="4 car">${escapeHtml(item["4 car"])}</div></td>
+                    <td><div class="editable" data-field="3 car">${escapeHtml(item["3 car"])}</div></td>
+                    <td><div class="editable" data-field="2 car">${escapeHtml(item["2 car"])}</div></td>
+                    <td>
+                        <button class="edit-btn" style="background:var(--accent); color:var(--bg); border:none; padding:5px 10px; border-radius:4px; cursor:pointer;" onclick="toggleEdit(this)">Edit</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if ((query.length > 0 && state.matches.length > 100) || (query.length === 0 && state.DATA.length > 100)) {
+                const warning = document.createElement('tr');
+                const total = query.length === 0 ? state.DATA.length : state.matches.length;
+                warning.innerHTML = `<td colspan="9" style="text-align:center; color:var(--muted);">Showing 100 of ${total.toLocaleString()}. Use search to find specific locations.</td>`;
+                tbody.appendChild(warning);
+            }
+        }
+
+        window.toggleEdit = function (btn) {
+            const tr = btn.closest('tr');
+            const isEditing = tr.classList.contains('editing');
+
+            if (isEditing) {
+                saveIntersection(tr);
+            } else {
+                tr.classList.add('editing');
+                btn.textContent = "Save";
+                btn.style.background = "var(--ok)"; // Fixed: was success (undefined)
+
+
+                tr.querySelectorAll('.editable').forEach(div => {
+                    const clone = div.cloneNode(true);
+                    const link = clone.querySelector('a');
+                    if (link) link.remove();
+                    const val = clone.innerText.trim();
+                    const field = div.getAttribute('data-field');
+
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = val === "null" || val === "undefined" || val === "—" ? "" : val;
+                    input.style.width = "100%";
+                    input.style.background = "rgba(0,0,0,0.2)";
+                    input.style.border = "1px solid var(--accent)";
+                    input.style.color = "white";
+                    input.style.padding = "4px";
+
+                    div.innerHTML = '';
+
+                    // Add GPS button for coordinates field
+                    if (field === 'coordinates') {
+                        div.style.display = 'flex';
+                        div.style.alignItems = 'center';
+                        div.style.gap = '4px';
+                        input.style.flex = '1';
+                        input.style.minWidth = '0';
+                        div.appendChild(input);
+
+                        const gpsBtn = document.createElement('button');
+                        gpsBtn.textContent = '📍';
+                        gpsBtn.title = 'Use my current location';
+                        gpsBtn.className = 'gps-btn';
+                        gpsBtn.style.cssText = 'flex-shrink:0; padding:4px 6px; background:rgba(124,159,255,0.2); border:1px solid var(--accent); color:var(--accent); border-radius:4px; cursor:pointer; font-size:14px; line-height:1;';
+                        gpsBtn.onclick = (e) => {
+                            e.preventDefault();
+                            gpsBtn.textContent = '⏳';
+                            navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                    input.value = `${pos.coords.latitude}, ${pos.coords.longitude}`;
+                                    gpsBtn.textContent = '✅';
+                                    setTimeout(() => { gpsBtn.textContent = '📍'; }, 1500);
+                                },
+                                (err) => {
+                                    alert('Could not get location: ' + err.message);
+                                    gpsBtn.textContent = '📍';
+                                },
+                                { enableHighAccuracy: true, timeout: 8000 }
+                            );
+                        };
+                        div.appendChild(gpsBtn);
+                    } else {
+                        div.appendChild(input);
+                    }
+                });
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = "Cancel";
+                cancelBtn.className = "cancel-btn";
+                cancelBtn.style.cssText = "background:transparent; color:var(--danger); border:1px solid var(--danger); padding:5px 10px; border-radius:4px; cursor:pointer; margin-left:5px;";
+                cancelBtn.onclick = () => cancelEdit(tr);
+                btn.after(cancelBtn);
+            }
+        }
+
+        window.cancelEdit = function (tr) {
+            renderIntersections();
+        }
+
+        async function saveIntersection(tr) {
+            const routeId = tr.getAttribute('data-route-id');
+            const originalRawName = tr.getAttribute('data-raw-street');
+
+            const updates = {};
+            tr.querySelectorAll('.editable').forEach(div => {
+                const field = div.getAttribute('data-field');
+                const input = div.querySelector('input');
+                const val = input.value;
+
+                if (field === 'name') updates.name = val;
+                else if (field === 'coordinates') updates.coordinates = val;
+                else {
+                    if (!updates.plans) updates.plans = {};
+                    updates.plans[field] = val;
+                }
+            });
+
+            const btn = tr.querySelector('.edit-btn');
+            const cancelBtn = tr.querySelector('.cancel-btn');
+            btn.textContent = "Saving...";
+            btn.disabled = true;
+            if (cancelBtn) cancelBtn.style.display = 'none';
+
+            try {
+                const payload = {
+                    action: "updateData",
+                    route: routeId,
+                    intersection: originalRawName,
+                    updates: updates
+                };
+
+                const res = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    const item = state.DATA.find(i => String(i.Route) === String(routeId) && i.STREETSORT === originalRawName);
+                    if (item) {
+                        item.STREETSORT = updates.name;
+                        item.coordinates = updates.coordinates;
+                        if (updates.plans) {
+                            if (updates.plans['6 car']) item["6 car"] = updates.plans['6 car'];
+                            if (updates.plans['4 car']) item["4 car"] = updates.plans['4 car'];
+                            if (updates.plans['2 car']) item["2 car"] = updates.plans['2 car'];
+                        }
+                    }
+
+                    $("intersectionStatus").innerHTML = `<span style="color:var(--success)">Saved to Google Sheets!</span>`;
+                    setTimeout(() => $("intersectionStatus").textContent = "", 3000);
+                    renderIntersections();
+
+                } else {
+                    const txt = await res.text();
+                    alert("Error saving: " + txt);
+                    btn.textContent = "Save";
+                    btn.disabled = false;
+                    if (cancelBtn) cancelBtn.style.display = 'inline-block';
+                }
+            } catch (e) {
+                alert("Error: " + e.message);
+                btn.textContent = "Save";
+                btn.disabled = false;
+                if (cancelBtn) cancelBtn.style.display = 'inline-block';
+            }
+        }
+
+        let debounceTimer;
+        $("intersectionSearch").addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                renderIntersections();
+            }, 300);
+        });
+
+    </script>
     <script type="module">
         import { GOOGLE_SCRIPT_URL } from '../js/config.js';
 
@@ -421,7 +850,8 @@
                 const isNicknamed = displayName !== deviceId;
 
                 // Strip everything after " (" for the copy value to remove YARD/Division
-                const routeOnly = l.topResultSummary ? l.topResultSummary.split(" (")[0].trim() : "";
+                const topStr = l.topResultSummary != null ? String(l.topResultSummary) : "";
+                const routeOnly = topStr ? topStr.split(" (")[0].trim() : "";
 
                 return `
                 <tr>
@@ -433,7 +863,7 @@
                         </div>
                     </td>
                     <td style="color:var(--accent)">${escape(l.query)}</td>
-                    <td><span class="copy-route" data-route="${escape(routeOnly)}" style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted;" title="Click to copy">${escape(l.topResultSummary)}</span></td>
+                    <td><span class="copy-route" data-route="${escape(routeOnly)}" style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted;" title="Click to copy">${escape(topStr)}</span></td>
                     <td style="color:#ffd700">${escape(l.sixCar || "-")}</td>
                     <td>${escape(l.intersection)}</td>
                     <td>${mapLink}</td>
@@ -472,7 +902,7 @@
                     </div>
                     <div class="log-card-row">
                         <span class="log-card-label">Result</span>
-                        <span class="log-card-value"><span class="copy-route" data-route="${escape(l.topResultSummary ? l.topResultSummary.split(" (")[0].trim() : "")}" style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted;" title="Click to copy">${escape(l.topResultSummary)}</span></span>
+                        <span class="log-card-value"><span class="copy-route" data-route="${escape(l.topResultSummary != null ? String(l.topResultSummary).split(" (")[0].trim() : "")}" style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted;" title="Click to copy">${escape(l.topResultSummary != null ? String(l.topResultSummary) : "")}</span></span>
                     </div>
                     ${l.sixCar ? `
                     <div class="log-card-row">
@@ -525,14 +955,12 @@
                         ? `Enter a nickname for device "${deviceId}":`
                         : `Edit nickname for device "${deviceId}"\nCurrent: "${currentNickname}"`;
 
-                    const newNickname = prompt(prompt_text, deviceId === currentNickname ? "" : currentNickname);
-
+                    const newNickname = prompt(prompt_text);
                     if (newNickname !== null) {
-                        const status = $("status");
-                        status.innerHTML = `Saving... <span class="spinner"></span>`;
                         await saveNicknameToSheets(deviceId, newNickname);
-                        status.innerHTML = `<span style="color:var(--success)">Nickname saved!</span>`;
-                        setTimeout(() => loadLogs(), 500);
+                        // Refresh display
+                        const start = Math.max(0, displayedCount - LOGS_PER_PAGE);
+                        renderLogs(0, displayedCount, true);
                     }
                 });
             });
@@ -540,77 +968,86 @@
 
         window.loadLogs = async function () {
             const status = $("status");
-            const tbody = $("logBody");
-            const mobileBody = $("logBodyMobile");
-            const loadMoreBtn = $("loadMoreBtn");
-
-            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("YOUR_")) {
-                $("configWarning").style.display = "block";
-                status.innerHTML = `<span style="color:var(--danger)">Configuration Missing</span>`;
-                return;
-            }
-
-            status.innerHTML = `Loading from Google Sheets... <span class="spinner"></span>`;
-            if (loadMoreBtn) loadMoreBtn.style.display = 'none';
-
-            await loadNicknamesFromSheets();
+            status.innerHTML = 'Loading logs... <span class="spinner"></span>';
+            $("loadMoreBtn").style.display = "none";
 
             try {
-                const res = await fetch(GOOGLE_SCRIPT_URL);
-                if (!res.ok) throw new Error("Failed to fetch");
-
-                allLogs = await res.json();
-                displayedCount = 0;
-
-                if (allLogs.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted)">No logs found yet.</td></tr>`;
-                    mobileBody.innerHTML = `<div style="text-align:center; padding:20px; color:var(--muted)">No logs found yet.</div>`;
-                    status.textContent = `No logs found.`;
-                } else {
-                    // Load first batch
-                    const initialCount = Math.min(LOGS_PER_PAGE, allLogs.length);
-                    renderLogs(0, initialCount, true);
-                    displayedCount = initialCount;
-
-                    // Show Load More button if there are more logs
-                    if (displayedCount < allLogs.length && loadMoreBtn) {
-                        loadMoreBtn.style.display = 'block';
-                        const remaining = allLogs.length - displayedCount;
-                        loadMoreBtn.textContent = `Load More (${Math.min(LOGS_PER_PAGE, remaining)} of ${remaining} remaining)`;
-                    }
-
-                    status.textContent = `Loaded ${displayedCount} of ${allLogs.length} logs.`;
+                if (!GOOGLE_SCRIPT_URL) {
+                    throw new Error("Configuration missing. Please set GOOGLE_SCRIPT_URL in js/config.js");
                 }
-            } catch (err) {
-                status.innerHTML = `<span style="color:var(--danger)">Error: ${err.message}</span>. Check console & CORS settings.`;
+
+                if (GOOGLE_SCRIPT_URL.includes("YOUR_")) {
+                    document.getElementById('configWarning').style.display = 'block';
+                    status.innerHTML = "";
+                    return;
+                }
+
+                // Load nicknames first
+                await loadNicknamesFromSheets();
+
+                // Fetch logs from Google Sheets
+                // The script returns logs by default or with action=getLogs (implicit)
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getLogs`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                if (!Array.isArray(data)) {
+                    // Try to handle if it returned an error object
+                    if (data.status === "error") throw new Error(data.message);
+                    throw new Error("Invalid data format received");
+                }
+
+                allLogs = data;
+                displayedCount = 0;
+                renderLogs(0, LOGS_PER_PAGE, true);
+                displayedCount = Math.min(allLogs.length, LOGS_PER_PAGE);
+
+                status.innerHTML = `Showing ${displayedCount} of ${allLogs.length} logs`;
+                if (allLogs.length > displayedCount) {
+                    $("loadMoreBtn").style.display = "block";
+                }
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+                status.innerHTML = `<span style="color:var(--danger)">Error loading logs: ${error.message}</span>`;
             }
-        };
+        }
 
         window.loadMore = function () {
-            const status = $("status");
-            const loadMoreBtn = $("loadMoreBtn");
-
-            const nextCount = Math.min(displayedCount + LOGS_PER_PAGE, allLogs.length);
+            const nextCount = Math.min(allLogs.length, displayedCount + LOGS_PER_PAGE);
             renderLogs(displayedCount, nextCount, false);
             displayedCount = nextCount;
 
+            $("status").innerHTML = `Showing ${displayedCount} of ${allLogs.length} logs`;
             if (displayedCount >= allLogs.length) {
-                if (loadMoreBtn) loadMoreBtn.style.display = 'none';
-            } else if (loadMoreBtn) {
-                const remaining = allLogs.length - displayedCount;
-                loadMoreBtn.textContent = `Load More (${Math.min(LOGS_PER_PAGE, remaining)} of ${remaining} remaining)`;
+                $("loadMoreBtn").style.display = "none";
             }
-
-            status.textContent = `Loaded ${displayedCount} of ${allLogs.length} logs.`;
-        };
-
-        function escape(s) {
-            return String(s || "").replaceAll("<", "&lt;");
         }
 
-        loadLogs();
+        function escape(str) {
+            if (!str) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Initial load
+        if (sessionStorage.getItem('admin_authenticated') === 'true') {
+            loadLogs();
+        } else {
+            // Wait for auth
+            const checker = setInterval(() => {
+                if (sessionStorage.getItem('admin_authenticated') === 'true') {
+                    clearInterval(checker);
+                    loadLogs();
+                }
+            }, 500);
+        }
     </script>
 </body>
-
 
 </html>

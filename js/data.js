@@ -23,49 +23,142 @@ export const state = {
     SYN_GROUPS: []        // [{phrases:[...], tokens:Set([...])}]
 };
 
-export async function loadWorkbook(url, setStatusCallback, callback) {
-    if (setStatusCallback) setStatusCallback("muted", `Loading ${url}… <span class="spinner"></span>`);
+function safeDecode(s) {
+    if (!s) return "";
     try {
-        const resp = await fetch(url, { cache: "no-store" });
-        if (!resp.ok) throw new Error(`Fetch failed (${resp.status})`);
-        const buf = await resp.arrayBuffer();
-        // Access XLSX from global scope (loaded via script tag)
-        const wb = window.XLSX.read(buf, { type: "array" });
+        // Repeatedly decode if double encoded
+        let decoded = decodeURIComponent(s);
+        // Try one more time just in case (some legacies were double encoded)
+        if (decoded.includes("%")) {
+            try { decoded = decodeURIComponent(decoded); } catch (e) { }
+        }
+        return decoded;
+    } catch (e) { return s; }
+}
 
-        processWorkbook(wb);
+// Loading from Google Sheets now
+export async function loadWorkbook(isAdmin, setStatusCallback, callback) {
+    if (setStatusCallback) setStatusCallback("muted", `Loading data… <span class="spinner"></span>`);
+    try {
+        const { GOOGLE_SCRIPT_URL } = await import('./config.js');
+
+        const cachedData = localStorage.getItem('routeDashboardData');
+        const lastFetched = localStorage.getItem('routeDashboardLastFetched');
+
+        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+	
+        const now = Date.now();
+        const cacheIsFresh = lastFetched && (now - parseInt(lastFetched, 10) < SEVEN_DAYS_MS);
+
+        let json;
+
+        if (cacheIsFresh && cachedData) {
+            console.log("Cache is less than 7 days old. Using cached data.");
+            json = JSON.parse(cachedData);
+        } else {
+            console.log("Cache expired or missing. Fetching fresh data from Google Sheets...");
+            if (setStatusCallback) setStatusCallback("muted", `Fetching data from Google Sheets… <span class="spinner"></span>`);
+            const resp = await fetch(`${GOOGLE_SCRIPT_URL}?action=getData`);
+            if (!resp.ok) throw new Error(`Fetch failed (${resp.status})`);
+
+            json = await resp.json();
+            console.log("Received fresh data:", json);
+
+            try {
+                localStorage.setItem('routeDashboardData', JSON.stringify(json));
+                localStorage.setItem('routeDashboardLastFetched', Date.now().toString());
+            } catch (e) {
+                console.warn("Could not save to localStorage (quota exceeded?)", e);
+            }
+        }
+
+        processSheets(json);
 
         if (setStatusCallback) setStatusCallback("ok", `Loaded ${state.DATA.length.toLocaleString()} rows.`);
         if (callback) callback();
     } catch (err) {
-        if (setStatusCallback) setStatusCallback("error", `Could not load ${url}. ${err.message}`);
+        // Fallback to cache if error
+        const cachedData = localStorage.getItem('routeDashboardData');
+        if (cachedData) {
+            console.log("Fallback to cached data due to error", err);
+            try {
+                processSheets(JSON.parse(cachedData));
+                if (setStatusCallback) setStatusCallback("ok", `Loaded ${state.DATA.length.toLocaleString()} rows (Offline Mode).`);
+                if (callback) callback();
+                return;
+            } catch (e) {
+                console.warn("Failed to parse cached data", e);
+            }
+        }
+
+        if (setStatusCallback) setStatusCallback("error", `Could not load data. ${err.message}`);
+        console.error("Data Load Error:", err);
         state.DATA = [];
         if (callback) callback();
     }
 }
 
-function processWorkbook(wb) {
-    const s1name = wb.SheetNames[0];
-    const s2name = wb.SheetNames[1];
-    const s1 = wb.Sheets[s1name];
-    const s2 = wb.Sheets[s2name];
+function processSheets(data) {
+    // data.sheet1 is the source of truth now
+    const sheet1 = data.sheet1 || [];
 
-    const sheet1 = window.XLSX.utils.sheet_to_json(s1, { defval: null });
-    const sheet2 = window.XLSX.utils.sheet_to_json(s2, { defval: null });
-
-    // Sheet3: alternatives/synonyms (optional)
+    // Sheet3 logic (synonyms) - mostly skipped in GAS for now, or we can add it later.
     state.synonyms = new Map();
     state.SYN_TOKEN = new Map();
     state.SYN_GROUPS = [];
 
-    if (wb.SheetNames.length >= 3) {
-        const s3 = wb.Sheets[wb.SheetNames[2]];
-        if (s3) {
-            const sheet3 = window.XLSX.utils.sheet_to_json(s3, { defval: null });
-            processSynonyms(sheet3);
+    try {
+        processSynonyms(data.sheet3 || []); // "search" sheet data
+    } catch (e) {
+        console.warn("Synonym processing failed:", e);
+    }
+
+    // Direct mapping of Sheet1 to state.DATA
+    // We assume Sheet1 has all columns: Route, YARD, STREETSORT, coordinates, 6 car, 4 car, 2 car
+
+    // Helper to find column case-insensitively if needed, though usually keys are stable
+    const findCol = (row, name) => Object.keys(row).find(k => k.toLowerCase().includes(name.toLowerCase()));
+
+    const processed = [];
+    if (sheet1.length > 0) {
+        // Detect keys once
+        const ex = sheet1[0];
+        const routeKey = ("Route" in ex) ? "Route" : Object.keys(ex)[0]; // First col usually Route
+        const yardKey = ("YARD" in ex) ? "YARD" : (findCol(ex, "yard") || "YARD");
+        const streetKey = ("STREETSORT" in ex) ? "STREETSORT" : (findCol(ex, "street") || "STREETSORT");
+
+        // Plan keys: "6 car", "4 car", "2 car" (or "1 car", "3 car", "5 car")
+        const plans = ["6 car", "5 car", "4 car", "3 car", "2 car", "1 car"];
+        const planKeys = {};
+        plans.forEach(p => {
+            planKeys[p] = (p in ex) ? p : (findCol(ex, p) || p);
+        });
+
+        for (const r of sheet1) {
+            const route = Number(r[routeKey]);
+            if (!Number.isFinite(route)) continue;
+
+            const out = {
+                Route: route,
+                YARD: r[yardKey] ? safeDecode(r[yardKey]) : null,
+                STREETSORT: r[streetKey] ? safeDecode(r[streetKey]) : null,
+                _RAW_STREET: r[streetKey], // Keep original for updates
+                coordinates: r.coordinates ? safeDecode(String(r.coordinates)) : null,
+            };
+
+            // Map plans
+            plans.forEach(p => {
+                out[p] = r[planKeys[p]] ?? null;
+            });
+
+            const { lat, lon } = parseCoord(out.coordinates);
+            out.lat = lat; out.lon = lon;
+
+            processed.push(out);
         }
     }
 
-    mergeSheets(sheet1, sheet2);
+    state.DATA = processed;
 }
 
 function processSynonyms(sheet3) {
@@ -109,78 +202,6 @@ function processSynonyms(sheet3) {
 
         state.SYN_GROUPS.push({ phrases: uniq, tokens: tokSet });
     }
-}
-
-function mergeSheets(sheet1, sheet2) {
-    const routeKey1 = sheet1.length ? (("Route" in sheet1[0]) ? "Route" : Object.keys(sheet1[0])[0]) : "Route";
-    const routeKey2 = sheet2.length ? (("Route" in sheet2[0]) ? "Route" : Object.keys(sheet2[0])[0]) : "Route";
-
-    const unnamed6 = sheet2.length ? Object.keys(sheet2[0]).find(k => k.toLowerCase().includes("unnamed") && k.includes("6")) : null;
-
-    // Helper to fuzzy find key in row object
-    const findKey = (row, digits) => Object.keys(row).find(k => {
-        const s = String(k).trim().toLowerCase();
-        return s === digits || s === `${digits}.0` || (s.includes(digits) && s.includes("car"));
-    });
-
-    const map2 = new Map();
-
-    for (const r of sheet2) {
-        const route = Number(r[routeKey2]);
-        if (!Number.isFinite(route)) continue;
-        const row = { ...r };
-        row.Route = route;
-
-        // Normalize the car keys
-        row.__plans = {};
-        for (const d of ["1", "2", "3", "4", "5", "6"]) {
-            const k = findKey(r, d);
-            if (k) row.__plans[`${d} car`] = r[k];
-        }
-
-        if (unnamed6 && !row.__plans["1 car"]) {
-            row.__plans["1 car"] = row[unnamed6];
-        }
-
-        map2.set(route, row);
-    }
-
-    // Helper to find column case-insensitively
-    const findCol = (row, name) => Object.keys(row).find(k => k.toLowerCase().includes(name.toLowerCase()));
-
-    const yardKey = sheet1.length ? (("YARD" in sheet1[0]) ? "YARD" : findCol(sheet1[0], "yard")) : "YARD";
-    const streetKey = sheet1.length ? (("STREETSORT" in sheet1[0]) ? "STREETSORT" : findCol(sheet1[0], "street")) : "STREETSORT";
-
-    const merged = [];
-    for (const r of sheet1) {
-        const route = Number(r[routeKey1]);
-        if (!Number.isFinite(route)) continue;
-
-        const row1 = { ...r };
-        row1.Route = route;
-
-        const row2 = map2.get(route) || { __plans: {} };
-        const plans = row2.__plans || {};
-
-        const out = {
-            Route: row1.Route,
-            YARD: row1[yardKey] ?? null,
-            STREETSORT: row1[streetKey] ?? null,
-            coordinates: row1.coordinates ?? null,
-            "6 car": plans["6 car"] ?? null,
-            "5 car": plans["5 car"] ?? null,
-            "4 car": plans["4 car"] ?? null,
-            "3 car": plans["3 car"] ?? null,
-            "2 car": plans["2 car"] ?? null,
-            "1 car": plans["1 car"] ?? null,
-        };
-
-        const { lat, lon } = parseCoord(out.coordinates);
-        out.lat = lat; out.lon = lon;
-
-        merged.push(out);
-    }
-    state.DATA = merged;
 }
 
 function parseCoord(s) {
@@ -364,4 +385,74 @@ export function searchNearMe(setStatusCallback, renderCallback) {
         (err) => setStatusCallback("error", `Could not get your location: ${escapeHtml(err.message)}`),
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
+}
+
+export async function adminForceUpdate(setStatusCallback) {
+    if (setStatusCallback) setStatusCallback("muted", `Publishing update to clients… <span class="spinner"></span>`);
+    try {
+        const { GOOGLE_SCRIPT_URL, JSONBIN_BIN_ID, JSONBIN_API_KEY } = await import('./config.js');
+
+        if (JSONBIN_BIN_ID === "YOUR_BIN_ID_HERE") {
+            throw new Error("JSONBin is not configured in config.js");
+        }
+
+        const newVersion = new Date().getTime().toString();
+
+        // 1. Tell JSONBin to bump the global version
+        const respVersion = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': JSONBIN_API_KEY
+            },
+            body: JSON.stringify({ version: newVersion })
+        });
+        if (!respVersion.ok) throw new Error(`Version update failed (${respVersion.status})`);
+
+        // 2. Actually fetch the freshly updated data for the cache
+        const respData = await fetch(`${GOOGLE_SCRIPT_URL}?action=getData`);
+        if (!respData.ok) throw new Error(`Fetch failed (${respData.status})`);
+
+        const json = await respData.json();
+
+        // 3. Update the local cache with the new data
+        localStorage.setItem('routeDashboardData', JSON.stringify(json));
+
+        // 4. Update the local version tag to match what we just published
+        localStorage.setItem('routeDashboardVersion', newVersion);
+
+        if (setStatusCallback) setStatusCallback("ok", `Update published. Clients will refresh their data on next load.`);
+    } catch (err) {
+        if (setStatusCallback) setStatusCallback("error", `Failed to publish update: ${err.message}`);
+        console.error("Force update failed:", err);
+    }
+}
+
+export async function userForceFetch(setStatusCallback, renderCallback) {
+    if (setStatusCallback) setStatusCallback("muted", `Force fetching live data from Google Sheets… <span class="spinner"></span>`);
+    try {
+        const { GOOGLE_SCRIPT_URL } = await import('./config.js');
+
+        const respData = await fetch(`${GOOGLE_SCRIPT_URL}?action=getData`);
+        if (!respData.ok) throw new Error(`Fetch failed (${respData.status})`);
+
+        const json = await respData.json();
+
+        const newVersionResp = await fetch(`${GOOGLE_SCRIPT_URL}?action=getVersion`);
+        if (newVersionResp.ok) {
+            const newVersion = await newVersionResp.text();
+            localStorage.setItem('routeDashboardVersion', newVersion);
+        }
+
+        localStorage.setItem('routeDashboardData', JSON.stringify(json));
+        localStorage.setItem('routeDashboardLastFetched', Date.now().toString());
+
+        processSheets(json);
+        if (setStatusCallback) setStatusCallback("ok", `Loaded ${state.DATA.length.toLocaleString()} fresh rows directly from server.`);
+        if (renderCallback) renderCallback();
+
+    } catch (err) {
+        if (setStatusCallback) setStatusCallback("error", `Force fetch failed: ${err.message}`);
+        console.error("User Force Fetch error:", err);
+    }
 }

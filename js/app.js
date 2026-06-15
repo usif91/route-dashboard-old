@@ -1,4 +1,4 @@
-import { state, loadWorkbook, computeMatches, searchNearMe } from './data.js';
+import { state, loadWorkbook, computeMatches, searchNearMe, userForceFetch } from './data.js';
 import { setStatus, updateCounts, renderNext, renderNextNear, renderRows, updateCarHeader } from './ui.js';
 import { escapeHtml } from './utils.js';
 import { logSearch } from './logger.js';
@@ -6,7 +6,7 @@ import { logSearch } from './logger.js';
 let logTimeout;
 
 const $ = (id) => document.getElementById(id);
-const EXCEL_FILE = "data.xlsx";
+const EXCEL_FILE = null; // Deprecated - using Google Sheets via config.js
 
 async function copyText(text) {
     try {
@@ -124,7 +124,18 @@ $("q").addEventListener("input", (e) => {
     state.userPos = null;
     setStatus("", "");
     computeMatches();
-    renderNext(true); // Re-render with new matches
+
+    if (state.query.trim().length < 2) {
+        $("tbody").innerHTML = "";
+        document.querySelector(".card").style.display = "none";
+        document.querySelector("header").classList.add("empty-state");
+        $("btnMore").disabled = true;
+        $("shownNote").textContent = "Type at least 2 letters to search";
+    } else {
+        document.querySelector(".card").style.display = "block";
+        document.querySelector("header").classList.remove("empty-state");
+        renderNext(true); // Re-render with new matches
+    }
 
     // Logging with debounce (wait 2s after typing stops)
     clearTimeout(logTimeout);
@@ -143,6 +154,8 @@ $("btnMore").addEventListener("click", () => {
 
 $("btnNear").addEventListener("click", () => {
     searchNearMe(setStatus, () => {
+        document.querySelector(".card").style.display = "block";
+        document.querySelector("header").classList.remove("empty-state");
         $("tbody").innerHTML = "";
         renderNextNear();
 
@@ -158,12 +171,47 @@ $("btnNear").addEventListener("click", () => {
     });
 });
 
+document.querySelector("h1").addEventListener("dblclick", () => {
+    userForceFetch(setStatus, () => {
+        updateCounts();
+        updateCarHeader();
+        computeMatches();
+        if (state.query && state.query.trim().length >= 2) {
+            document.querySelector(".card").style.display = "block";
+            document.querySelector("header").classList.remove("empty-state");
+            renderNext(true);
+        } else if (state.nearMode && state.userPos) {
+            document.querySelector(".card").style.display = "block";
+            document.querySelector("header").classList.remove("empty-state");
+            $("tbody").innerHTML = "";
+            renderNextNear();
+        } else {
+            document.querySelector(".card").style.display = "none";
+            document.querySelector("header").classList.add("empty-state");
+            $("tbody").innerHTML = "";
+            $("btnMore").disabled = true;
+            $("shownNote").textContent = "Data force fetched. Ready to search.";
+        }
+    });
+});
+
 $("tbody").addEventListener("click", handleTableClick);
 
 // Init
-loadWorkbook(EXCEL_FILE, setStatus, () => {
+loadWorkbook(false, setStatus, () => {
     updateCounts();
     updateCarHeader(); // Dynamic header text
     computeMatches();
-    renderNext(true);
+
+    if (state.query && state.query.trim().length >= 2) {
+        document.querySelector(".card").style.display = "block";
+        document.querySelector("header").classList.remove("empty-state");
+        renderNext(true);
+    } else {
+        document.querySelector(".card").style.display = "none";
+        document.querySelector("header").classList.add("empty-state");
+        $("tbody").innerHTML = "";
+        $("btnMore").disabled = true;
+        $("shownNote").textContent = "Type at least 2 letters to search or use Location";
+    }
 });

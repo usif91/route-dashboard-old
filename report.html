@@ -15,47 +15,165 @@
 
 <body class="report-mode">
     <div style="font-size:10px; color:rgba(255,255,255,0.2); float:right;">v2.1</div>
-    <header>
+    <header id="report-header" class="empty-state">
         <div class="wrap">
-            <h1>Route Dashboard</h1>
-            <div class="controls">
-                <input id="q" type="search" placeholder='Search . Example: "3rd jef"' autocomplete="off" />
-                <button id="btnNear">Search near me (top 5)</button>
+            <h1>Route Dashboard (Ticketing)</h1>
+
+            <div class="tabs">
+                <button id="tab-submit" class="tab-btn active">Submit Report</button>
+                <button id="tab-view" class="tab-btn">View Open Tickets</button>
             </div>
+
+            <!-- SEARCH CONTROLS (Only visible on Submit tab) -->
+            <div id="search-controls" class="controls">
+                <input id="q" type="search" placeholder='Search intersection... Example: "3rd jef"'
+                    autocomplete="off" />
+                <button id="btnNear">Near me</button>
+            </div>
+
             <div id="status" class="meta" style="margin-top:8px;"></div>
         </div>
     </header>
 
     <main>
         <div class="wrap">
-            <div class="card">
-                <table>
-                    <colgroup>
-                        <col class="route" />
-                        <col class="yard" />
-                        <col class="street" />
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            <th>Route</th>
-                            <th id="th-plan">Car</th>
-                            <th>Intersection</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbody"></tbody>
-                </table>
-                <div class="actions">
-                    <div class="left-actions">
-                        <button id="btnMore">Load more</button>
-                        <span class="note" id="shownNote">—</span>
+
+            <!-- SUBMIT TAB CONTENT -->
+            <div id="view-submit" class="tab-content active">
+
+                <!-- 1. Search Results Table -->
+                <div class="card" id="search-card" style="display:none;">
+                    <table>
+                        <colgroup>
+                            <col class="route" />
+                            <col class="yard" />
+                            <col class="street" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Route</th>
+                                <th id="th-plan">Car</th>
+                                <th>Intersection (Tap to select)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody"></tbody>
+                    </table>
+                    <div class="actions">
+                        <div class="left-actions">
+                            <button id="btnMore">Load more</button>
+                            <span class="note" id="shownNote">—</span>
+                        </div>
                     </div>
                 </div>
+
+                <!-- 2. Submission Form (Hidden until intersection selected) -->
+                <div class="card form-card" id="form-card" style="display:none; padding: 20px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="margin: 0; font-size: 18px;">Submit Ticket</h2>
+                        <button id="btnCancelForm" class="icon-btn"
+                            style="width: auto; padding: 4px 12px; font-size: 13px;">Cancel</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Selected Location</label>
+                        <input type="text" id="reportIntersection" readonly
+                            style="background: rgba(0,0,0,0.2); opacity: 0.8;" />
+                        <input type="hidden" id="reportRoute" />
+                        <input type="hidden" id="reportLat" />
+                        <input type="hidden" id="reportLon" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Problem Type</label>
+                        <select id="reportProblemType">
+                            <option value="" disabled selected>Select a problem...</option>
+                            <option value="Light Out">Light Out</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <!-- Conditional: Light Details -->
+                    <div id="lightDetails"
+                        style="display: none; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label>Light Color</label>
+                            <select id="reportLightColor">
+                                <option value="" disabled selected>Select color...</option>
+                                <option value="Red">Red</option>
+                                <option value="Yellow">Yellow</option>
+                                <option value="Green">Green</option>
+                                <option value="Pedestrian">Pedestrian / Walk</option>
+                            </select>
+                        </div>
+                        <div id="lightSizeContainer" class="form-group" style="margin-bottom: 0;">
+                            <label>Lens Size</label>
+                            <select id="reportLightSize">
+                                <option value="" disabled selected>Select size (Optional)...</option>
+                                <option value="8 inch">8 inch</option>
+                                <option value="12 inch">12 inch</option>
+                                <option value="PV">PV</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Conditional: Other Details -->
+                    <div id="otherDetails" class="form-group" style="display: none;">
+                        <label>Problem Description</label>
+                        <input type="text" id="reportOtherDesc" placeholder="Describe the issue..." />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Location Notes</label>
+                        <input type="text" id="reportLocationNotes" placeholder="e.g. Northwest corner, facing East" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Additional Notes</label>
+                        <textarea id="reportAdditionalNotes" rows="3" placeholder="Any other details..."></textarea>
+                    </div>
+
+                    <button id="btnSubmitReport"
+                        style="width: 100%; background: var(--accent); color: #000; font-weight: bold; margin-top: 10px;">Submit
+                        Ticket</button>
+                </div>
+
             </div>
+
+            <!-- VIEW TICKETS TAB CONTENT -->
+            <div id="view-tickets" class="tab-content">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 8px;">
+                    <h2 style="font-size: 16px; margin: 0;">Open Tickets</h2>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <select id="ticketCarFilter"
+                            style="width: auto; padding: 6px 10px; border-radius: 8px; background: rgba(18, 22, 36, 0.9); color: var(--text); border: 1px solid var(--border);">
+                            <option value="all">All</option>
+                            <option value="24">24</option>
+                            <option value="25">25</option>
+                            <option value="44">44</option>
+                            <option value="45">45</option>
+                            <option value="64">64</option>
+                            <option value="65">65</option>
+                        </select>
+                        <select id="ticketSortSelect"
+                            style="width: auto; padding: 6px 10px; border-radius: 8px; background: rgba(18, 22, 36, 0.9); color: var(--text); border: 1px solid var(--border);">
+                            <option value="distance">Sort by Distance</option>
+                            <option value="time">Sort by Newest</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="ticketsContainer" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Tickets injected here -->
+                </div>
+            </div>
+
         </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script type="module" src="js/app.js"></script>
+    <script type="module" src="js/report.js"></script>
 </body>
 
 </html>
